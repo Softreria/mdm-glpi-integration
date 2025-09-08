@@ -428,9 +428,6 @@ class GLPIPhone:
         )
 
 
-class GLPIDevice:
-    """Modelo de dispositivo para GLPI (Computadoras)."""
-    
     def to_glpi_format(self) -> Dict[str, Any]:
         """Convertir a formato esperado por GLPI API."""
         data = {

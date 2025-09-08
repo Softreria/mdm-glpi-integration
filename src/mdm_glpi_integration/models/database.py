@@ -22,7 +22,8 @@ class SyncRecord(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     device_id = Column(String(255), nullable=False, index=True)
     mdm_device_id = Column(String(255), nullable=False)
-    glpi_computer_id = Column(Integer, nullable=True)
+    glpi_device_id = Column(Integer, nullable=True)
+    glpi_device_type = Column(String(20), nullable=False, default="computer")  # computer, phone
     
     # Información de sincronización
     sync_type = Column(String(50), nullable=False)  # full, incremental, manual
@@ -112,7 +113,8 @@ class DeviceMapping(Base):
     
     # Identificadores
     mdm_device_id = Column(String(255), nullable=False, unique=True)
-    glpi_computer_id = Column(Integer, nullable=False, unique=True)
+    glpi_device_id = Column(Integer, nullable=False, unique=True)
+    glpi_device_type = Column(String(20), nullable=False, default="computer")  # computer, phone
     
     # Información de mapeo
     mapping_type = Column(String(50), nullable=False, default="automatic")  # automatic, manual
@@ -133,7 +135,7 @@ class DeviceMapping(Base):
     # Índices
     __table_args__ = (
         Index("idx_mdm_device_id", "mdm_device_id"),
-        Index("idx_glpi_computer_id", "glpi_computer_id"),
+        Index("idx_glpi_device_id", "glpi_device_id"),
         Index("idx_device_serial", "device_serial"),
         Index("idx_is_active_updated", "is_active", "updated_at"),
     )
@@ -141,7 +143,7 @@ class DeviceMapping(Base):
     def __repr__(self) -> str:
         return (
             f"<DeviceMapping(id={self.id}, mdm_id='{self.mdm_device_id}', "
-            f"glpi_id={self.glpi_computer_id}, active={self.is_active})>"
+            f"glpi_id={self.glpi_device_id}, active={self.is_active})>"
         )
 
 
