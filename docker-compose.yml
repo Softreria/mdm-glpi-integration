@@ -1,0 +1,124 @@
+version: '3.8'
+
+services:
+  mdm-glpi-sync:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mdm-glpi-integration
+    restart: unless-stopped
+    
+    environment:
+      # Variables de entorno requeridas
+      - MDM_API_KEY=${MDM_API_KEY}
+      - GLPI_APP_TOKEN=${GLPI_APP_TOKEN}
+      - GLPI_USER_TOKEN=${GLPI_USER_TOKEN}
+      
+      # Variables opcionales
+      - LOGGING_LEVEL=${LOGGING_LEVEL:-INFO}
+      - SYNC_BATCH_SIZE=${SYNC_BATCH_SIZE:-100}
+      - MONITORING_ENABLE_METRICS=${MONITORING_ENABLE_METRICS:-true}
+    
+    volumes:
+      # Configuración
+      - ./config:/app/config:ro
+      # Logs persistentes
+      - ./logs:/app/logs
+      # Base de datos local
+      - ./data:/app/data
+      # Archivo de configuración personalizado (opcional)
+      - ./config/config.yaml:/app/config/config.yaml:ro
+    
+    ports:
+      # Puerto para métricas de Prometheus
+      - "8080:8080"
+    
+    networks:
+      - mdm-glpi-network
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "mdm-glpi-sync", "health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    # Límites de recursos
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+    
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Servicio opcional: Prometheus para métricas
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: mdm-glpi-prometheus
+    restart: unless-stopped
+    
+    ports:
+      - "9090:9090"
+    
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    
+    networks:
+      - mdm-glpi-network
+    
+    profiles:
+      - monitoring
+
+  # Servicio opcional: Grafana para visualización
+  grafana:
+    image: grafana/grafana:latest
+    container_name: mdm-glpi-grafana
+    restart: unless-stopped
+    
+    ports:
+      - "3000:3000"
+    
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    
+    networks:
+      - mdm-glpi-network
+    
+    profiles:
+      - monitoring
+
+networks:
+  mdm-glpi-network:
+    driver: bridge
+    name: mdm-glpi-network
+
+volumes:
+  prometheus_data:
+    name: mdm-glpi-prometheus-data
+  grafana_data:
+    name: mdm-glpi-grafana-data
