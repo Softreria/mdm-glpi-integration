@@ -56,11 +56,13 @@ class MDMDevice:
     model: str
     manufacturer: str
     serial_number: str
-    imei: Optional[str] = None
     
     # Sistema operativo
     os_type: str
     os_version: str
+    
+    # Campos opcionales
+    imei: Optional[str] = None
     
     # Usuario asignado
     user_email: Optional[str] = None
