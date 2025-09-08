@@ -267,7 +267,7 @@ class MDMDevice:
 
 @dataclass
 class GLPIDevice:
-    """Modelo de dispositivo para GLPI."""
+    """Modelo de dispositivo para GLPI (Computadoras)."""
     
     # Identificadores
     id: Optional[int] = None  # ID en GLPI
@@ -310,6 +310,126 @@ class GLPIDevice:
     mdm_battery_level: Optional[int] = None
     mdm_storage_total: Optional[int] = None
     mdm_storage_available: Optional[int] = None
+
+
+@dataclass
+class GLPIPhone:
+    """Modelo de teléfono para GLPI."""
+    
+    # Identificadores
+    id: Optional[int] = None  # ID en GLPI
+    name: str = ""
+    
+    # Información básica
+    serial: str = ""
+    otherserial: str = ""  # Para IMEI u otro identificador
+    
+    # Tipo y modelo específicos para teléfonos
+    phonetypes_id: Optional[int] = None
+    phonemodels_id: Optional[int] = None
+    manufacturers_id: Optional[int] = None
+    
+    # Información de teléfono
+    number_line: str = ""  # Número de teléfono
+    have_headset: bool = False
+    have_speaker: bool = True
+    
+    # Usuario y ubicación
+    users_id: Optional[int] = None
+    locations_id: Optional[int] = None
+    
+    # Estado
+    states_id: Optional[int] = None
+    is_deleted: bool = False
+    
+    # Fechas
+    date_creation: Optional[datetime] = None
+    date_mod: Optional[datetime] = None
+    
+    # Comentarios y notas
+    comment: str = ""
+    
+    # Campos personalizados para MDM
+    mdm_device_id: str = ""
+    mdm_last_seen: Optional[datetime] = None
+    mdm_enrollment_date: Optional[datetime] = None
+    mdm_status: str = ""
+    mdm_is_supervised: bool = False
+    mdm_battery_level: Optional[int] = None
+    mdm_storage_total: Optional[int] = None
+    mdm_storage_available: Optional[int] = None
+    mdm_os_type: str = ""
+    mdm_os_version: str = ""
+    
+    def to_glpi_format(self) -> Dict[str, Any]:
+        """Convertir a formato esperado por GLPI Phone API."""
+        data = {
+            "name": self.name,
+            "serial": self.serial,
+            "comment": self.comment,
+            "is_deleted": self.is_deleted,
+            "number_line": self.number_line,
+            "have_headset": self.have_headset,
+            "have_speaker": self.have_speaker
+        }
+        
+        # Agregar campos opcionales si tienen valor
+        optional_fields = [
+            "otherserial", "phonetypes_id", "phonemodels_id",
+            "manufacturers_id", "users_id", "locations_id", "states_id"
+        ]
+        
+        for field in optional_fields:
+            value = getattr(self, field)
+            if value is not None:
+                data[field] = value
+        
+        # Agregar ID si existe (para updates)
+        if self.id is not None:
+            data["id"] = self.id
+        
+        return data
+    
+    @classmethod
+    def from_mdm_device(cls, mdm_device: MDMDevice) -> "GLPIPhone":
+        """Crear teléfono GLPI desde dispositivo MDM."""
+        # Crear comentario con información MDM
+        comment_parts = [
+            f"Dispositivo móvil sincronizado desde MDM",
+            f"ID MDM: {mdm_device.device_id}",
+            f"OS: {mdm_device.os_type} {mdm_device.os_version}"
+        ]
+        
+        if mdm_device.user_email:
+            comment_parts.append(f"Usuario: {mdm_device.user_email}")
+        
+        if mdm_device.battery_level is not None:
+            comment_parts.append(f"Batería: {mdm_device.battery_level}%")
+        
+        if mdm_device.storage_used_percent is not None:
+            comment_parts.append(f"Almacenamiento usado: {mdm_device.storage_used_percent}%")
+        
+        return cls(
+            name=mdm_device.device_name,
+            serial=mdm_device.serial_number,
+            otherserial=mdm_device.imei or "",
+            number_line=mdm_device.phone_number or "",
+            comment="\n".join(comment_parts),
+            mdm_device_id=mdm_device.device_id,
+            mdm_last_seen=mdm_device.last_seen,
+            mdm_enrollment_date=mdm_device.enrollment_date,
+            mdm_status=mdm_device.status,
+            mdm_is_supervised=mdm_device.is_supervised,
+            mdm_battery_level=mdm_device.battery_level,
+            mdm_storage_total=mdm_device.storage_total,
+            mdm_storage_available=mdm_device.storage_available,
+            mdm_os_type=mdm_device.os_type,
+            mdm_os_version=mdm_device.os_version
+        )
+
+
+class GLPIDevice:
+    """Modelo de dispositivo para GLPI (Computadoras)."""
     
     def to_glpi_format(self) -> Dict[str, Any]:
         """Convertir a formato esperado por GLPI API."""

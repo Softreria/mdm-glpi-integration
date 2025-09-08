@@ -5,7 +5,8 @@ from .device import (
     OSType,
     DeviceUser,
     MDMDevice,
-    GLPIDevice
+    GLPIDevice,
+    GLPIPhone
 )
 from .database import (
     Base,
@@ -25,6 +26,7 @@ __all__ = [
     "DeviceUser",
     "MDMDevice",
     "GLPIDevice",
+    "GLPIPhone",
     
     # Database models
     "Base",

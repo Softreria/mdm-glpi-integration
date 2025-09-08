@@ -5,6 +5,7 @@
 ## 🌟 Características
 
 - **Sincronización Automática**: Sincronización programada y manual de dispositivos desde ManageEngine MDM a GLPI
+- **Soporte Dual**: Dispositivos móviles aparecen en "Teléfonos" y computadoras en "Equipos" de GLPI
 - **API REST Completa**: Endpoints para operaciones manuales, monitoreo y administración
 - **Monitoreo Avanzado**: Métricas Prometheus, health checks y alertas
 - **Configuración Flexible**: Archivos YAML con validación y recarga en caliente
@@ -355,6 +356,40 @@ RestartSec=10
 WantedBy=multi-user.target
 ```
 
+## 📱 Soporte de Teléfonos
+
+La integración ahora soporta que los dispositivos móviles aparezcan correctamente en la sección "Teléfonos" de GLPI:
+
+### Comportamiento Automático
+
+- **Dispositivos Móviles** (iPhone, Android): Aparecen en `GLPI > Parque > Teléfonos`
+- **Computadoras** (iPad, Windows, Mac): Aparecen en `GLPI > Parque > Equipos`
+
+### Migración de Datos Existentes
+
+Si ya tienes dispositivos sincronizados:
+
+```bash
+# 1. Ejecutar migración de base de datos
+python migrations/001_add_phone_support.py
+
+# 2. Re-sincronizar dispositivos existentes
+python cli.py sync --type full --force
+```
+
+### Verificación
+
+Después de la sincronización:
+
+1. Ve a **GLPI > Parque > Teléfonos** para ver dispositivos móviles
+2. Ve a **GLPI > Parque > Equipos** para ver computadoras
+3. Revisa los logs para confirmar el tipo de dispositivo:
+   ```
+   Dispositivo sincronizado: device_id=XXX, device_type=phone, action=created
+   ```
+
+Para más detalles, consulta [PHONE_SUPPORT.md](PHONE_SUPPORT.md).
+
 ## 🔒 Seguridad
 
 - **Credenciales**: Nunca hardcodees credenciales en el código
@@ -379,6 +414,25 @@ WantedBy=multi-user.target
 - Asegúrate de que todos los tests pasen
 
 ## 📝 Changelog
+
+### [1.1.0] - 2024-01-20
+
+#### Added
+- **Soporte de Teléfonos**: Los dispositivos móviles ahora aparecen en GLPI > Parque > Teléfonos
+- Nuevo modelo `GLPIPhone` para manejo específico de teléfonos
+- Funciones de API para teléfonos en GLPIConnector
+- Detección automática de tipo de dispositivo (móvil vs computadora)
+- Migración de base de datos para soporte dual
+- Documentación detallada en `PHONE_SUPPORT.md`
+
+#### Changed
+- `sync_device_from_mdm()` ahora detecta automáticamente el tipo de dispositivo
+- Modelo `SyncRecord` actualizado para soportar ambos tipos de dispositivos
+- Campos de base de datos renombrados para mayor claridad
+
+#### Fixed
+- Dispositivos móviles ya no aparecen incorrectamente como computadoras
+- Mejor mapeo de metadatos específicos para teléfonos
 
 ### [1.0.0] - 2024-01-15
 

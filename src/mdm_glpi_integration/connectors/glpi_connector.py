@@ -16,7 +16,7 @@ from tenacity import (
 )
 
 from ..config.settings import GLPIConfig
-from ..models.device import GLPIDevice, MDMDevice
+from ..models.device import GLPIDevice, GLPIPhone, MDMDevice
 from ..utils.rate_limiter import RateLimiter
 
 logger = structlog.get_logger()
@@ -468,6 +468,237 @@ class GLPIConnector:
             )
             return False
 
+    # ===== FUNCIONES PARA TELÉFONOS =====
+    
+    async def search_phones(
+        self,
+        criteria: Dict[str, Any],
+        range_start: int = 0,
+        range_end: int = 50
+    ) -> List[Dict[str, Any]]:
+        """Buscar teléfonos en GLPI.
+        
+        Args:
+            criteria: Criterios de búsqueda
+            range_start: Inicio del rango
+            range_end: Fin del rango
+            
+        Returns:
+            Lista de teléfonos encontrados
+        """
+        params = {
+            "criteria": criteria,
+            "range": f"{range_start}-{range_end}"
+        }
+        
+        try:
+            response = await self._make_request(
+                "GET", 
+                "/search/Phone", 
+                params=params
+            )
+            
+            return response.get("data", [])
+            
+        except GLPINotFoundError:
+            return []
+        except Exception as e:
+            self.logger.error("Error en búsqueda de teléfonos", error=str(e))
+            raise
+
+    async def get_phone_by_mdm_id(self, mdm_device_id: str) -> Optional[Dict[str, Any]]:
+        """Buscar teléfono por ID de dispositivo MDM.
+        
+        Args:
+            mdm_device_id: ID del dispositivo en MDM
+            
+        Returns:
+            Datos del teléfono o None si no se encuentra
+        """
+        # Buscar en el campo de comentarios
+        criteria = [
+            {
+                "field": "16",  # Campo comment
+                "searchtype": "contains",
+                "value": f"ID MDM: {mdm_device_id}"
+            }
+        ]
+        
+        phones = await self.search_phones({"criteria": criteria})
+        
+        if phones:
+            phone_id = phones[0].get("2")  # ID
+            if phone_id:
+                return await self.get_phone(int(phone_id))
+        
+        return None
+
+    async def get_phone_by_serial(self, serial: str) -> Optional[Dict[str, Any]]:
+        """Buscar teléfono por número de serie.
+        
+        Args:
+            serial: Número de serie
+            
+        Returns:
+            Datos del teléfono o None si no se encuentra
+        """
+        criteria = [
+            {
+                "field": "5",  # Campo serial
+                "searchtype": "equals",
+                "value": serial
+            }
+        ]
+        
+        phones = await self.search_phones({"criteria": criteria})
+        
+        if phones:
+            phone_id = phones[0].get("2")  # ID
+            if phone_id:
+                return await self.get_phone(int(phone_id))
+        
+        return None
+
+    async def get_phone(self, phone_id: int) -> Optional[Dict[str, Any]]:
+        """Obtener detalles de un teléfono.
+        
+        Args:
+            phone_id: ID del teléfono
+            
+        Returns:
+            Datos del teléfono
+        """
+        try:
+            response = await self._make_request(
+                "GET", 
+                f"/Phone/{phone_id}"
+            )
+            return response
+        except GLPINotFoundError:
+            return None
+
+    async def create_phone(self, phone_data: Dict[str, Any]) -> Optional[int]:
+        """Crear un nuevo teléfono en GLPI.
+        
+        Args:
+            phone_data: Datos del teléfono
+            
+        Returns:
+            ID del teléfono creado
+        """
+        try:
+            response = await self._make_request(
+                "POST",
+                "/Phone",
+                json_data={"input": phone_data}
+            )
+            
+            if isinstance(response, dict) and "id" in response:
+                phone_id = response["id"]
+                self.logger.info(
+                    "Teléfono creado en GLPI",
+                    phone_id=phone_id,
+                    name=phone_data.get("name")
+                )
+                return phone_id
+            
+            return None
+            
+        except Exception as e:
+            self.logger.error(
+                "Error al crear teléfono",
+                phone_data=phone_data,
+                error=str(e)
+            )
+            raise
+
+    async def update_phone(
+        self, 
+        phone_id: int, 
+        phone_data: Dict[str, Any]
+    ) -> bool:
+        """Actualizar un teléfono existente.
+        
+        Args:
+            phone_id: ID del teléfono
+            phone_data: Datos actualizados
+            
+        Returns:
+            True si la actualización es exitosa
+        """
+        try:
+            # Agregar ID a los datos
+            update_data = {"id": phone_id, **phone_data}
+            
+            response = await self._make_request(
+                "PUT",
+                f"/Phone/{phone_id}",
+                json_data={"input": update_data}
+            )
+            
+            self.logger.info(
+                "Teléfono actualizado en GLPI",
+                phone_id=phone_id,
+                name=phone_data.get("name")
+            )
+            
+            return True
+            
+        except Exception as e:
+            self.logger.error(
+                "Error al actualizar teléfono",
+                phone_id=phone_id,
+                error=str(e)
+            )
+            raise
+
+    async def sync_mobile_device_from_mdm(self, mdm_device: MDMDevice) -> Optional[int]:
+        """Sincronizar un dispositivo móvil MDM con GLPI como teléfono.
+        
+        Args:
+            mdm_device: Dispositivo desde MDM
+            
+        Returns:
+            ID del teléfono en GLPI
+        """
+        try:
+            # Buscar si ya existe
+            existing = await self.get_phone_by_mdm_id(mdm_device.device_id)
+            
+            if not existing:
+                # Buscar por serial como fallback
+                if mdm_device.serial_number:
+                    existing = await self.get_phone_by_serial(mdm_device.serial_number)
+            
+            # Convertir a formato GLPI Phone
+            glpi_phone = GLPIPhone.from_mdm_device(mdm_device)
+            
+            # Resolver IDs de metadatos para teléfonos
+            await self._resolve_phone_metadata_ids(glpi_phone, mdm_device)
+            
+            # Preparar datos para GLPI
+            phone_data = glpi_phone.to_glpi_format()
+            
+            if existing:
+                # Actualizar existente
+                phone_id = existing.get("id")
+                if phone_id:
+                    await self.update_phone(phone_id, phone_data)
+                    return phone_id
+            else:
+                # Crear nuevo
+                return await self.create_phone(phone_data)
+            
+            return None
+            
+        except Exception as e:
+            self.logger.error(
+                "Error al sincronizar dispositivo móvil",
+                device_id=mdm_device.device_id,
+                error=str(e)
+            )
+            raise
+
     async def sync_device_from_mdm(self, mdm_device: MDMDevice) -> Optional[int]:
         """Sincronizar un dispositivo MDM con GLPI.
         
@@ -475,9 +706,14 @@ class GLPIConnector:
             mdm_device: Dispositivo desde MDM
             
         Returns:
-            ID de la computadora en GLPI
+            ID del dispositivo en GLPI (computadora o teléfono)
         """
         try:
+            # Si es un dispositivo móvil, usar la API de teléfonos
+            if mdm_device.is_mobile:
+                return await self.sync_mobile_device_from_mdm(mdm_device)
+            
+            # Para dispositivos no móviles, usar la API de computadoras
             # Buscar si ya existe
             existing = await self.get_computer_by_mdm_id(mdm_device.device_id)
             
@@ -555,6 +791,42 @@ class GLPIConnector:
         if mdm_device.user_email:
             user_id = await self._get_user_by_email(mdm_device.user_email)
             glpi_device.users_id = user_id
+
+    async def _resolve_phone_metadata_ids(
+        self, 
+        glpi_phone: GLPIPhone, 
+        mdm_device: MDMDevice
+    ) -> None:
+        """Resolver IDs de metadatos para teléfonos.
+        
+        Args:
+            glpi_phone: Teléfono GLPI a actualizar
+            mdm_device: Dispositivo MDM fuente
+        """
+        # Resolver fabricante
+        if mdm_device.manufacturer:
+            manufacturer_id = await self._get_or_create_manufacturer(mdm_device.manufacturer)
+            glpi_phone.manufacturers_id = manufacturer_id
+        
+        # Resolver modelo de teléfono
+        if mdm_device.model:
+            model_id = await self._get_or_create_phone_model(mdm_device.model)
+            glpi_phone.phonemodels_id = model_id
+        
+        # Resolver tipo de teléfono
+        phone_type = "Mobile" if mdm_device.is_mobile else "Phone"
+        type_id = await self._get_or_create_phone_type(phone_type)
+        glpi_phone.phonetypes_id = type_id
+        
+        # Resolver estado
+        state_name = "Active" if mdm_device.is_active else "Inactive"
+        state_id = await self._get_or_create_state(state_name)
+        glpi_phone.states_id = state_id
+        
+        # Resolver usuario
+        if mdm_device.user_email:
+            user_id = await self._get_user_by_email(mdm_device.user_email)
+            glpi_phone.users_id = user_id
 
     async def _get_or_create_manufacturer(self, name: str) -> Optional[int]:
         """Obtener o crear fabricante."""
@@ -726,6 +998,74 @@ class GLPIConnector:
             
         except Exception as e:
             self.logger.warning("Error al resolver estado", name=name, error=str(e))
+            return None
+
+    async def _get_or_create_phone_model(self, name: str) -> Optional[int]:
+        """Obtener o crear modelo de teléfono."""
+        try:
+            criteria = [
+                {
+                    "field": "1",  # name
+                    "searchtype": "equals",
+                    "value": name
+                }
+            ]
+            
+            response = await self._make_request(
+                "GET",
+                "/search/PhoneModel",
+                params={"criteria": criteria}
+            )
+            
+            data = response.get("data", [])
+            if data:
+                return int(data[0].get("2"))  # ID
+            
+            # Crear nuevo
+            response = await self._make_request(
+                "POST",
+                "/PhoneModel",
+                json_data={"input": {"name": name}}
+            )
+            
+            return response.get("id")
+            
+        except Exception as e:
+            self.logger.warning("Error al resolver modelo de teléfono", name=name, error=str(e))
+            return None
+
+    async def _get_or_create_phone_type(self, name: str) -> Optional[int]:
+        """Obtener o crear tipo de teléfono."""
+        try:
+            criteria = [
+                {
+                    "field": "1",  # name
+                    "searchtype": "equals",
+                    "value": name
+                }
+            ]
+            
+            response = await self._make_request(
+                "GET",
+                "/search/PhoneType",
+                params={"criteria": criteria}
+            )
+            
+            data = response.get("data", [])
+            if data:
+                return int(data[0].get("2"))  # ID
+            
+            # Crear nuevo
+            response = await self._make_request(
+                "POST",
+                "/PhoneType",
+                json_data={"input": {"name": name}}
+            )
+            
+            return response.get("id")
+            
+        except Exception as e:
+            self.logger.warning("Error al resolver tipo de teléfono", name=name, error=str(e))
             return None
 
     async def _get_user_by_email(self, email: str) -> Optional[int]:

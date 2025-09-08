@@ -54,13 +54,14 @@ class SyncResult:
 
 
 class SyncRecord(Base):
-    """Registro de sincronización en base de datos."""
+    """Registro de sincronización de dispositivos."""
     __tablename__ = "sync_records"
     
     id = Column(Integer, primary_key=True)
     device_id = Column(String(255), nullable=False, index=True)
     mdm_device_id = Column(String(255), nullable=False, index=True)
-    glpi_computer_id = Column(Integer, nullable=True)
+    glpi_device_id = Column(Integer, nullable=True)  # ID en GLPI (computadora o teléfono)
+    glpi_device_type = Column(String(50), nullable=True)  # 'computer' o 'phone'
     last_sync = Column(DateTime, nullable=False)
     last_hash = Column(String(32), nullable=True)
     sync_status = Column(String(50), nullable=False)
@@ -445,27 +446,31 @@ class SyncService:
                 device_id=mdm_device.device_id
             )
             
-            return {"action": "skipped", "glpi_id": sync_record.glpi_computer_id}
+            return {"action": "skipped", "glpi_id": sync_record.glpi_device_id}
         
         # Sincronizar con GLPI
-        glpi_computer_id = await glpi_connector.sync_device_from_mdm(mdm_device)
+        glpi_device_id = await glpi_connector.sync_device_from_mdm(mdm_device)
         
-        if glpi_computer_id:
+        if glpi_device_id:
             action = "updated" if sync_record else "created"
+            
+            # Determinar tipo de dispositivo
+            device_type = "phone" if mdm_device.is_mobile else "computer"
             
             # Actualizar registro de sincronización
             self._update_sync_record(
-                db_session, mdm_device, glpi_computer_id, SyncStatus.SUCCESS
+                db_session, mdm_device, glpi_device_id, device_type, SyncStatus.SUCCESS
             )
             
             self.logger.debug(
                 "Dispositivo sincronizado",
                 device_id=mdm_device.device_id,
-                glpi_id=glpi_computer_id,
+                glpi_id=glpi_device_id,
+                device_type=device_type,
                 action=action
             )
             
-            return {"action": action, "glpi_id": glpi_computer_id}
+            return {"action": action, "glpi_id": glpi_device_id}
         
         else:
             raise Exception("No se pudo sincronizar con GLPI")
@@ -474,7 +479,8 @@ class SyncService:
         self,
         db_session: Session,
         mdm_device: MDMDevice,
-        glpi_computer_id: Optional[int],
+        glpi_device_id: Optional[int],
+        device_type: str,
         status: SyncStatus,
         error_message: Optional[str] = None
     ) -> None:
@@ -483,7 +489,8 @@ class SyncService:
         Args:
             db_session: Sesión de base de datos
             mdm_device: Dispositivo MDM
-            glpi_computer_id: ID en GLPI
+            glpi_device_id: ID en GLPI
+            device_type: Tipo de dispositivo ('computer' o 'phone')
             status: Estado de sincronización
             error_message: Mensaje de error opcional
         """
@@ -496,8 +503,9 @@ class SyncService:
             sync_record.sync_status = status.value
             sync_record.error_message = error_message
             
-            if glpi_computer_id:
-                sync_record.glpi_computer_id = glpi_computer_id
+            if glpi_device_id:
+                sync_record.glpi_device_id = glpi_device_id
+                sync_record.glpi_device_type = device_type
             
             if status == SyncStatus.SUCCESS:
                 sync_record.last_hash = mdm_device.calculate_sync_hash()
@@ -506,7 +514,8 @@ class SyncService:
             sync_record = SyncRecord(
                 device_id=mdm_device.get_unique_identifier(),
                 mdm_device_id=mdm_device.device_id,
-                glpi_computer_id=glpi_computer_id,
+                glpi_device_id=glpi_device_id,
+                glpi_device_type=device_type,
                 last_sync=datetime.now(),
                 last_hash=mdm_device.calculate_sync_hash() if status == SyncStatus.SUCCESS else None,
                 sync_status=status.value,

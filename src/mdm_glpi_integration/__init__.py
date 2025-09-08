@@ -10,12 +10,14 @@ __email__ = "david@softreria.com"
 __description__ = "Integración entre ManageEngine MDM y GLPI"
 
 from .config.settings import Settings
-from .models.device import Device
+from .models.device import MDMDevice, GLPIDevice, GLPIPhone
 from .services.sync_service import SyncService
 
 __all__ = [
     "Settings",
-    "Device", 
+    "MDMDevice",
+    "GLPIDevice",
+    "GLPIPhone",
     "SyncService",
     "__version__",
     "__author__",
