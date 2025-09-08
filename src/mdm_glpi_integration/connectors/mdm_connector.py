@@ -173,7 +173,7 @@ class ManageEngineMDMConnector:
             True si la conexión es exitosa
         """
         try:
-            await self._make_request("GET", "/api/v1/mdm/devices", params={"limit": 1})
+            await self._make_request("GET", "/", params={"limit": 1})
             self.logger.info("Conexión con MDM exitosa")
             return True
         except Exception as e:
@@ -210,7 +210,7 @@ class ManageEngineMDMConnector:
             params["device_type"] = device_type
         
         try:
-            response = await self._make_request("GET", "/api/v1/mdm/devices", params=params)
+            response = await self._make_request("GET", "/", params=params)
             
             devices = []
             for device_data in response.get("devices", []):
@@ -248,7 +248,7 @@ class ManageEngineMDMConnector:
         try:
             response = await self._make_request(
                 "GET", 
-                f"/api/v1/mdm/devices/{device_id}"
+                f"/{device_id}"
             )
             
             device_data = response.get("device")
@@ -320,7 +320,7 @@ class ManageEngineMDMConnector:
             return self._users_cache
         
         try:
-            response = await self._make_request("GET", "/api/v1/mdm/users")
+            response = await self._make_request("GET", "/users")
             
             users = {}
             for user_data in response.get("users", []):
@@ -363,7 +363,7 @@ class ManageEngineMDMConnector:
         try:
             response = await self._make_request(
                 "GET", 
-                f"/api/v1/mdm/devices/{device_id}/apps"
+                f"/{device_id}/apps"
             )
             
             apps = response.get("apps", [])
@@ -455,7 +455,7 @@ class ManageEngineMDMConnector:
             params["modified_since"] = modified_since.isoformat()
         
         try:
-            response = await self._make_request("GET", "/api/v1/mdm/devices", params=params)
+            response = await self._make_request("GET", "/", params=params)
             return response.get("total", 0)
         except Exception as e:
             self.logger.error("Error al obtener conteo de dispositivos", error=str(e))
@@ -483,7 +483,7 @@ class ManageEngineMDMConnector:
         try:
             response = await self._make_request(
                 "GET", 
-                "/api/v1/mdm/devices/search", 
+                "/search", 
                 params=params
             )
             

@@ -13,7 +13,7 @@ El archivo principal de configuración debe estar en la raíz del proyecto. Pued
 Todas las configuraciones pueden ser sobrescritas usando variables de entorno con el prefijo `MDM_GLPI_`:
 
 ```bash
-export MDM_GLPI_MDM__API_KEY="your-api-key"
+export MDM_GLPI_MDM__API_KEY="1000.8669518c8858b4ee9f05785205d1783c.c43f13b0a0bf7007bea0db"
 export MDM_GLPI_GLPI__BASE_URL="https://your-glpi.com/apirest.php"
 export MDM_GLPI_DATABASE__URL="postgresql://user:pass@localhost/db"
 ```
@@ -24,21 +24,21 @@ export MDM_GLPI_DATABASE__URL="postgresql://user:pass@localhost/db"
 
 ```yaml
 mdm:
-  base_url: "https://your-mdm.manageengine.com"  # URL base del MDM
-  api_key: "your-api-key"                        # API Key del MDM
-  timeout: 30                                     # Timeout en segundos
-  rate_limit: 100                                 # Límite de requests por minuto
-  ssl_verify: true                                # Verificar certificados SSL
-  retry_attempts: 3                               # Intentos de reintento
-  retry_delay: 1.0                                # Delay entre reintentos (segundos)
+  base_url: "https://mdm.manageengine.com/api/v1/devices"  # URL base de Zoho MDM
+  api_key: "1000.xxx.xxx"                          # Token OAuth de Zoho
+  timeout: 30                                       # Timeout en segundos
+  rate_limit: 100                                   # Límite de requests por minuto
+  ssl_verify: true                                  # Verificar certificados SSL
+  retry_attempts: 3                                 # Intentos de reintento
+  retry_delay: 1.0                                  # Delay entre reintentos (segundos)
 ```
 
 #### Parámetros MDM
 
 | Parámetro | Tipo | Requerido | Default | Descripción |
 |-----------|------|-----------|---------|-------------|
-| `base_url` | string | ✅ | - | URL base de la API de ManageEngine MDM |
-| `api_key` | string | ✅ | - | Clave de API para autenticación |
+| `base_url` | string | ✅ | - | URL base de la API de Zoho MDM (ManageEngine) |
+| `api_key` | string | ✅ | - | Token OAuth de Zoho para autenticación |
 | `timeout` | int | ❌ | 30 | Timeout para requests HTTP (segundos) |
 | `rate_limit` | int | ❌ | 100 | Límite de requests por minuto |
 | `ssl_verify` | bool | ❌ | true | Verificar certificados SSL |

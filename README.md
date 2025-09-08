@@ -44,7 +44,7 @@
 4. **Configurar variables de entorno**:
    ```bash
    cp .env.example .env
-   # Editar .env con tus credenciales
+   # Editar .env con tu token de Zoho y credenciales de GLPI
    ```
 
 5. **Generar configuración**:
@@ -53,7 +53,12 @@
    # Editar config/config.yaml según tus necesidades
    ```
 
-6. **Verificar conectividad**:
+6. **Probar conexión con Zoho MDM**:
+   ```bash
+   python test_zoho_connection.py
+   ```
+
+7. **Verificar conectividad**:
    ```bash
    mdm-glpi-sync health
    ```
@@ -82,7 +87,29 @@ mdm-glpi-sync status
 mdm-glpi-sync logs --days 7 --level INFO
 ```
 
-### Configuración
+### ⚙️ Configuración
+
+La aplicación se configura mediante:
+
+1. **Archivo principal**: `config/config.yaml`
+2. **Variables de entorno**: Prefijo `MDM_GLPI_`
+3. **Archivo .env**: Para desarrollo local
+
+### 🔑 Configuración de Zoho MDM
+
+Esta aplicación está configurada para trabajar con **Zoho MDM (ManageEngine)**. Para configurar tu token de autenticación:
+
+1. **Obtén tu token OAuth de Zoho** desde tu consola de Zoho
+2. **Configura el token** en tu archivo `.env`:
+   ```bash
+   MDM_API_KEY=1000.tu_token_oauth_de_zoho.aqui
+   ```
+3. **Verifica la conexión**:
+   ```bash
+   python test_zoho_connection.py
+   ```
+
+El formato del token debe ser: `1000.xxxxxxxx.xxxxxxxx`
 
 La configuración se realiza mediante el archivo `config/config.yaml`:
 
@@ -108,6 +135,8 @@ sync:
   batch_size: 100
   max_retries: 3
 ```
+
+Ver [documentación de configuración](docs/configuration.md) para detalles completos.
 
 ### Variables de Entorno
 
