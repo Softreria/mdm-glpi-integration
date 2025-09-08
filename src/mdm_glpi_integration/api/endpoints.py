@@ -569,14 +569,7 @@ async def get_info(
     }
 
 
-# Manejadores de errores globales
-@router.exception_handler(HTTPException)
-async def http_exception_handler(request, exc: HTTPException):
-    """Manejador de excepciones HTTP."""
-    return ErrorResponse(
-        error=exc.detail,
-        timestamp=datetime.now().isoformat()
-    )
+# Los manejadores de errores globales están en app.py
 
 
 @router.exception_handler(Exception)

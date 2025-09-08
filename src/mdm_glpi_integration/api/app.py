@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from typing import Dict, Any, Optional
 
 import structlog
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, Request, Response, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
@@ -204,6 +204,18 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
             content={
                 "error": "Error interno del servidor",
                 "detail": str(exc) if settings.logging.level == "DEBUG" else None
+            }
+        )
+    
+    @app.exception_handler(HTTPException)
+    async def http_exception_handler(request: Request, exc: HTTPException):
+        """Manejador de excepciones HTTP."""
+        from datetime import datetime
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={
+                "error": exc.detail,
+                "timestamp": datetime.now().isoformat()
             }
         )
     
